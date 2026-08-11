@@ -19,7 +19,12 @@ const defaultData = {
     { id: 't7', title: '规划团队团建活动', note: '明确预算和参与人数', due: isoDate(new Date(today.getFullYear(), today.getMonth(), 28)), quadrant: 'unassigned', done: false },
     { id: 't8', title: '阅读《高效能人士》', note: '每晚 20 分钟', due: '', quadrant: 'unassigned', done: false }
   ],
-  parkTasks: []
+  parkTasks: [],
+  projectBoards: [
+    { id: 'board', name: '任务安排' },
+    { id: 'park', name: '园区任务' }
+  ],
+  projectTasks: {}
 };
 let data = loadData();
 let currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -29,6 +34,7 @@ let deleteTarget = null;
 let dragPayload = null;
 let activeTaskBoard = 'board';
 let modalTaskBoard = 'board';
+let editingProjectId = null;
 
 function isoDate(date) {
   const year = date.getFullYear();
@@ -42,10 +48,14 @@ function normalizeTaskCollection(tasks) {
 }
 function normalizeData(value) {
   const source = value && typeof value === 'object' ? value : defaultData;
+  const projectBoards = Array.isArray(source.projectBoards) && source.projectBoards.length ? source.projectBoards : structuredClone(defaultData.projectBoards);
+  const projectTasks = source.projectTasks && typeof source.projectTasks === 'object' ? Object.fromEntries(Object.entries(source.projectTasks).map(([id, tasks]) => [id, normalizeTaskCollection(tasks)])) : {};
   return {
     events: Array.isArray(source.events) ? source.events : structuredClone(defaultData.events),
     tasks: normalizeTaskCollection(source.tasks || defaultData.tasks),
-    parkTasks: normalizeTaskCollection(source.parkTasks)
+    parkTasks: normalizeTaskCollection(source.parkTasks),
+    projectBoards: projectBoards.map(board => ({ id: String(board.id), name: String(board.name || '未命名项目').trim() || '未命名项目' })),
+    projectTasks
   };
 }
 function loadData() { try { return normalizeData(JSON.parse(localStorage.getItem(storageKey))); } catch { return normalizeData(defaultData); } }
@@ -100,19 +110,38 @@ const quadrants = [
   { id: 'assigned', title: '分配中任务', subtitle: '交给合适的人', cls: 'quad-assigned' },
   { id: 'unassigned', title: '待分配任务', subtitle: '下一步要做什么？', cls: 'quad-unassigned' }
 ];
-const taskBoards = {
-  board: { key: 'tasks', title: '任务安排', eyebrow: 'TASKS / WEEKLY REVIEW', caption: '清晰分辨下一步，让每件事都有归处。', taskLabel: '任务' },
-  park: { key: 'parkTasks', title: '园区任务', eyebrow: 'PARK / PROJECT WORK', caption: '为园区项目安排下一步，并保持不同项目的任务独立。', taskLabel: '园区任务' }
-};
-function getTaskCollection(board = activeTaskBoard) { return data[taskBoards[board].key]; }
+function getProjectBoard(boardId = activeTaskBoard) { return data.projectBoards.find(board => board.id === boardId) || data.projectBoards[0]; }
+function getTaskCollection(boardId = activeTaskBoard) {
+  if (boardId === 'board') return data.tasks;
+  if (boardId === 'park') return data.parkTasks;
+  if (!Array.isArray(data.projectTasks[boardId])) data.projectTasks[boardId] = [];
+  return data.projectTasks[boardId];
+}
+function setTaskCollection(boardId, tasks) {
+  if (boardId === 'board') data.tasks = tasks;
+  else if (boardId === 'park') data.parkTasks = tasks;
+  else data.projectTasks[boardId] = tasks;
+}
+function renderProjectNav() {
+  const root = document.getElementById('projectNav');
+  if (!root) return;
+  root.innerHTML = data.projectBoards.map(board => {
+    const count = getTaskCollection(board.id).filter(task => !task.done).length;
+    const icon = board.id === 'park' ? 'building-2' : board.id === 'board' ? 'layout-dashboard' : 'folder-kanban';
+    return `<div class="project-nav-item"><button class="nav-item ${activeTaskBoard === board.id ? 'active' : ''}" data-view="project" data-project-id="${escapeHtml(board.id)}" type="button"><i data-lucide="${icon}"></i><span>${escapeHtml(board.name)}</span><span class="nav-count">${count}</span></button><button class="nav-rename" data-project-id="${escapeHtml(board.id)}" type="button" title="重命名项目"><i data-lucide="pencil"></i></button></div>`;
+  }).join('');
+  root.querySelectorAll('.nav-item').forEach(button => button.addEventListener('click', () => switchView('project', button.dataset.projectId)));
+  root.querySelectorAll('.nav-rename').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); openProjectModal(button.dataset.projectId); }));
+  initIcons();
+}
 function sortTasks(tasks) { return [...tasks].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id)); }
 function nextSortOrder(tasks, quadrant) { const values = tasks.filter(task => task.quadrant === quadrant).map(task => task.sortOrder); return values.length ? Math.max(...values) + 1000 : 1000; }
 function updateBoardUi() {
-  const meta = taskBoards[activeTaskBoard];
-  document.getElementById('boardEyebrow').textContent = meta.eyebrow;
-  document.getElementById('boardHeading').textContent = meta.title;
-  document.getElementById('boardCaption').textContent = meta.caption;
-  document.getElementById('addTaskButton').innerHTML = `<i data-lucide="plus"></i>新增${meta.taskLabel}`;
+  const board = getProjectBoard();
+  document.getElementById('boardEyebrow').textContent = board.id === 'board' ? 'TASKS / WEEKLY REVIEW' : board.id === 'park' ? 'PARK / PROJECT WORK' : 'PROJECT / TASK BOARD';
+  document.getElementById('boardHeading').textContent = board.name;
+  document.getElementById('boardCaption').textContent = board.id === 'board' ? '清晰分辨下一步，让每件事都有归处。' : `为${board.name}安排下一步，并保持项目任务独立。`;
+  document.getElementById('addTaskButton').innerHTML = '<i data-lucide="plus"></i>新增任务';
 }
 function renderBoard() {
   const search = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -128,7 +157,7 @@ function renderBoard() {
   root.querySelectorAll('.edit-task').forEach(button => button.addEventListener('click', editTask));
   root.querySelectorAll('.delete-task').forEach(button => button.addEventListener('click', requestTaskDelete));
   root.querySelectorAll('.quad-add').forEach(button => button.addEventListener('click', () => openModal('task', '', button.dataset.quad)));
-  updateStats(); initIcons();
+  updateStats(); renderProjectNav(); initIcons();
 }
 function renderTask(task) { const due = task.due ? task.due.slice(5).replace('-', '/') : '无截止'; const overdue = task.due && task.due < isoDate(today) && !task.done; return `<article class="task-card ${task.done ? 'done' : ''}" draggable="true" data-task-id="${task.id}"><button class="task-check" type="button" title="标记完成"><i data-lucide="check"></i></button><div><div class="task-name">${escapeHtml(task.title)}</div>${task.note ? `<div class="task-note">${escapeHtml(task.note)}</div>` : ''}</div><div class="task-side"><span class="task-due ${overdue ? 'overdue' : ''}">${due}</span><div class="card-actions"><button class="mini-action edit-task" type="button" title="编辑任务"><i data-lucide="pencil"></i></button><button class="mini-action delete delete-task" type="button" title="删除任务"><i data-lucide="trash-2"></i></button></div></div></article>`; }
 function onTaskDragStart(event) { dragPayload = { kind: 'task', id: event.currentTarget.dataset.taskId, board: activeTaskBoard }; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', dragPayload.id); event.currentTarget.classList.add('dragging'); }
@@ -184,8 +213,7 @@ function updateStats() {
   document.getElementById('activeTaskCount').textContent = tasks.filter(t => t.quadrant === 'in-progress' && !t.done).length;
   document.getElementById('waitingTaskCount').textContent = tasks.filter(t => t.quadrant === 'waiting').length;
   document.getElementById('doneCount').textContent = done;
-  document.getElementById('boardCount').textContent = data.tasks.filter(t => !t.done).length;
-  document.getElementById('parkCount').textContent = data.parkTasks.filter(t => !t.done).length;
+  renderProjectNav();
 }
 
 function openModal(mode, date = '', quadrant = 'unassigned', itemId = null) {
@@ -195,7 +223,7 @@ function openModal(mode, date = '', quadrant = 'unassigned', itemId = null) {
   const item = itemId ? (mode === 'event' ? data.events : getTaskCollection(modalTaskBoard)).find(entry => entry.id === itemId) : null;
   const isEditing = Boolean(item);
   document.getElementById('modalBackdrop').classList.remove('hidden');
-  document.getElementById('modalTitle').textContent = `${isEditing ? '编辑' : '新增'}${mode === 'event' ? '行程' : taskBoards[modalTaskBoard].taskLabel}`;
+  document.getElementById('modalTitle').textContent = `${isEditing ? '编辑' : '新增'}${mode === 'event' ? '行程' : '任务'}`;
   document.getElementById('captureSubmitLabel').textContent = isEditing ? '保存修改' : '保存';
   document.getElementById('captureDate').value = item ? (mode === 'event' ? item.date : item.due) : (date || isoDate(today));
   document.getElementById('captureTitle').value = item?.title || '';
@@ -225,7 +253,7 @@ function handleCapture(event) {
     if (item) {
       if (item.quadrant !== values.quadrant) item.sortOrder = nextSortOrder(tasks, values.quadrant);
       Object.assign(item, values);
-    } else tasks.push({ id: `${modalTaskBoard === 'park' ? 'p' : 't'}-${Date.now()}`, ...values, done: false, sortOrder: nextSortOrder(tasks, values.quadrant) });
+    } else tasks.push({ id: `${modalTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`, ...values, done: false, sortOrder: nextSortOrder(tasks, values.quadrant) });
     saveData(); closeModal(); renderBoard(); toast(item ? '任务已更新' : '任务已添加');
   }
 }
@@ -243,27 +271,61 @@ function closeDeleteConfirm() { document.getElementById('confirmBackdrop').class
 function confirmDeletion() {
   if (!deleteTarget) return;
   const { kind, id, board } = deleteTarget;
-  if (kind === 'event') data.events = data.events.filter(entry => entry.id !== id); else data[taskBoards[board].key] = getTaskCollection(board).filter(entry => entry.id !== id);
+  if (kind === 'event') data.events = data.events.filter(entry => entry.id !== id); else setTaskCollection(board, getTaskCollection(board).filter(entry => entry.id !== id));
   saveData(); closeDeleteConfirm();
   if (kind === 'event') renderCalendar(); else renderBoard();
   toast(kind === 'event' ? '行程已删除' : '任务已删除');
 }
-function toast(message) { const node = document.getElementById('toast'); node.textContent = message; node.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer = setTimeout(() => node.classList.remove('show'), 2200); }
-function switchView(view) {
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view));
-  document.getElementById('calendarView').classList.toggle('hidden', view !== 'calendar');
-  document.getElementById('boardView').classList.toggle('hidden', view === 'calendar');
-  if (view === 'calendar') {
-    document.getElementById('pageTitle').textContent = '行程安排';
+function openProjectModal(projectId = null) {
+  editingProjectId = projectId;
+  const board = projectId ? getProjectBoard(projectId) : null;
+  document.getElementById('projectModalTitle').textContent = board ? '重命名项目' : '新建项目任务看板';
+  document.getElementById('saveProjectLabel').textContent = board ? '保存名称' : '创建看板';
+  document.getElementById('projectName').value = board?.name || '';
+  document.getElementById('projectBackdrop').classList.remove('hidden');
+  setTimeout(() => document.getElementById('projectName').focus(), 60);
+}
+function closeProjectModal() { document.getElementById('projectBackdrop').classList.add('hidden'); editingProjectId = null; }
+function handleProjectForm(event) {
+  event.preventDefault();
+  const name = document.getElementById('projectName').value.trim();
+  if (!name) return;
+  const board = editingProjectId ? getProjectBoard(editingProjectId) : null;
+  if (board) {
+    board.name = name;
+    saveData();
+    closeProjectModal();
+    if (activeTaskBoard === board.id) { updateBoardUi(); renderBoard(); }
+    else renderProjectNav();
+    toast('项目名称已更新');
     return;
   }
-  activeTaskBoard = view;
-  document.getElementById('pageTitle').textContent = taskBoards[view].title;
+  const id = `project-${Date.now()}`;
+  data.projectBoards.push({ id, name });
+  data.projectTasks[id] = [];
+  saveData();
+  closeProjectModal();
+  switchView('project', id);
+  toast('项目任务看板已创建');
+}
+function toast(message) { const node = document.getElementById('toast'); node.textContent = message; node.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer = setTimeout(() => node.classList.remove('show'), 2200); }
+function switchView(view, projectId = activeTaskBoard) {
+  document.getElementById('calendarView').classList.toggle('hidden', view !== 'calendar');
+  document.getElementById('boardView').classList.toggle('hidden', view === 'calendar');
+  document.getElementById('calendarNavButton').classList.toggle('active', view === 'calendar');
+  if (view === 'calendar') {
+    document.getElementById('pageTitle').textContent = '行程安排';
+    renderProjectNav();
+    return;
+  }
+  activeTaskBoard = getProjectBoard(projectId).id;
+  document.getElementById('pageTitle').textContent = getProjectBoard(activeTaskBoard).name;
   updateBoardUi();
   renderBoard();
 }
 
-document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => switchView(item.dataset.view)));
+document.getElementById('calendarNavButton').addEventListener('click', () => switchView('calendar'));
+document.getElementById('addProjectButton').addEventListener('click', () => openProjectModal());
 document.getElementById('prevMonth').addEventListener('click', () => { currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1); renderCalendar(); });
 document.getElementById('nextMonth').addEventListener('click', () => { currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1); renderCalendar(); });
 document.getElementById('todayButton').addEventListener('click', () => { currentMonth = new Date(today.getFullYear(), today.getMonth(), 1); switchView('calendar'); renderCalendar(); });
@@ -271,12 +333,15 @@ document.getElementById('addScheduleButton').addEventListener('click', () => ope
 document.getElementById('addTaskButton').addEventListener('click', () => openModal('task'));
 document.getElementById('closeModal').addEventListener('click', closeModal); document.getElementById('cancelModal').addEventListener('click', closeModal);
 document.getElementById('modalBackdrop').addEventListener('click', event => { if (event.target.id === 'modalBackdrop') closeModal(); });
+document.getElementById('closeProjectModal').addEventListener('click', closeProjectModal); document.getElementById('cancelProjectModal').addEventListener('click', closeProjectModal);
+document.getElementById('projectBackdrop').addEventListener('click', event => { if (event.target.id === 'projectBackdrop') closeProjectModal(); });
 document.getElementById('cancelDelete').addEventListener('click', closeDeleteConfirm);
 document.getElementById('confirmDelete').addEventListener('click', confirmDeletion);
 document.getElementById('confirmBackdrop').addEventListener('click', event => { if (event.target.id === 'confirmBackdrop') closeDeleteConfirm(); });
 document.getElementById('captureForm').addEventListener('submit', handleCapture);
+document.getElementById('projectForm').addEventListener('submit', handleProjectForm);
 document.getElementById('searchInput').addEventListener('input', renderBoard);
-document.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); document.getElementById('searchInput').focus(); } if (event.key === 'Escape') { closeModal(); closeDeleteConfirm(); } });
+document.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); document.getElementById('searchInput').focus(); } if (event.key === 'Escape') { closeModal(); closeDeleteConfirm(); closeProjectModal(); } });
 document.getElementById('todayLabel').textContent = formatToday(today);
 renderCalendar(); updateBoardUi(); renderBoard(); initIcons();
 window.cloudStore?.init({
