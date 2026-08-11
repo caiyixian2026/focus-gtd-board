@@ -197,6 +197,7 @@ function onTaskDrop(event) {
     }
   }
   task.quadrant = destination;
+  task.updatedAt = new Date().toISOString();
   orderedDestination.splice(insertionIndex, 0, task);
   orderedDestination.forEach((entry, index) => { entry.sortOrder = (index + 1) * 1000; });
   saveData();
@@ -205,7 +206,17 @@ function onTaskDrop(event) {
   toast(movedAcrossQuadrant ? '任务象限已更新' : '任务顺序已更新');
   dragPayload = null;
 }
-function toggleTask(event) { const id = event.currentTarget.closest('.task-card').dataset.taskId; const task = getTaskCollection().find(entry => entry.id === id); if (task) { task.done = !task.done; saveData(); renderBoard(); toast(task.done ? '已完成，做得好' : '已恢复为进行中'); } }
+function toggleTask(event) {
+  const id = event.currentTarget.closest('.task-card').dataset.taskId;
+  const task = getTaskCollection().find(entry => entry.id === id);
+  if (!task) return;
+  task.done = !task.done;
+  task.updatedAt = new Date().toISOString();
+  task.completedAt = task.done ? task.updatedAt : null;
+  saveData();
+  renderBoard();
+  toast(task.done ? '已完成，做得好' : '已恢复为进行中');
+}
 function updateStats() {
   const tasks = getTaskCollection();
   const total = tasks.length;
@@ -215,6 +226,67 @@ function updateStats() {
   document.getElementById('waitingTaskCount').textContent = tasks.filter(t => t.quadrant === 'waiting').length;
   document.getElementById('doneCount').textContent = done;
   renderProjectNav();
+}
+
+function getWeekWindow(reference = new Date()) {
+  const start = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
+  const mondayOffset = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - mondayOffset);
+  const nextStart = new Date(start); nextStart.setDate(start.getDate() + 7);
+  const followingStart = new Date(start); followingStart.setDate(start.getDate() + 14);
+  return { start, nextStart, followingStart };
+}
+function dateOnly(value) {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+function dateInRange(value, start, end) {
+  if (!value) return false;
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed >= start && parsed < end;
+}
+function allProjectTasks() {
+  return data.projectBoards.flatMap(board => getTaskCollection(board.id).map(task => ({ task, project: board.name })));
+}
+function reportTaskItem(task, project) {
+  return { project, title: task.title, note: task.note || '', due: task.due || '' };
+}
+function buildWeeklyReport(reference = new Date()) {
+  const window = getWeekWindow(reference);
+  const tasks = allProjectTasks();
+  const completed = tasks.filter(({ task }) => task.done && dateInRange(task.completedAt, window.start, window.nextStart)).map(({ task, project }) => reportTaskItem(task, project));
+  const ongoing = tasks.filter(({ task }) => !task.done && (task.quadrant === 'in-progress' || dateInRange(task.updatedAt, window.start, window.nextStart) || dateInRange(dateOnly(task.due), window.start, window.nextStart))).map(({ task, project }) => reportTaskItem(task, project));
+  const next = tasks.filter(({ task }) => !task.done && dateInRange(dateOnly(task.due), window.nextStart, window.followingStart)).map(({ task, project }) => reportTaskItem(task, project));
+  return { weekStart: isoDate(window.start), sections: { completed, ongoing, next } };
+}
+function renderReportItems(items) {
+  if (!items?.length) return '<p class="report-empty">本周暂无登记内容</p>';
+  return `<ul class="report-items">${items.map(item => `<li><div class="report-item-title">${escapeHtml(item.title)}<span class="report-project">${escapeHtml(item.project)}</span></div>${item.note ? `<div class="report-item-note">${escapeHtml(item.note)}</div>` : ''}${item.due ? `<div class="report-item-due">截止 ${escapeHtml(item.due)}</div>` : ''}</li>`).join('')}</ul>`;
+}
+function reportPlainText(report) {
+  const labels = [['一、本周已完成的工作', report.sections.completed], ['二、本周进行的工作', report.sections.ongoing], ['三、下周待完成的工作', report.sections.next]];
+  return labels.map(([label, items]) => `${label}\n${items?.length ? items.map(item => `- ${item.title}${item.project ? `（${item.project}）` : ''}${item.note ? `：${item.note}` : ''}${item.due ? `，截止 ${item.due}` : ''}`).join('\n') : '暂无登记内容'}`).join('\n\n');
+}
+async function openWeeklyReport() {
+  const preview = buildWeeklyReport();
+  const stored = await window.cloudStore?.getWeeklyReport(preview.weekStart);
+  const report = stored?.sections ? { weekStart: stored.week_start, sections: stored.sections } : preview;
+  const sourceLabel = stored ? `自动归档 · ${new Date(stored.generated_at).toLocaleString('zh-CN')}` : '当前任务预览 · 周五 14:00 自动归档';
+  document.getElementById('weeklyReportMeta').textContent = sourceLabel;
+  document.getElementById('weeklyCompleted').innerHTML = renderReportItems(report.sections.completed);
+  document.getElementById('weeklyOngoing').innerHTML = renderReportItems(report.sections.ongoing);
+  document.getElementById('weeklyNext').innerHTML = renderReportItems(report.sections.next);
+  window.__weeklyReportText = reportPlainText(report);
+  document.getElementById('weeklyReportBackdrop').classList.remove('hidden');
+  initIcons();
+}
+function closeWeeklyReport() { document.getElementById('weeklyReportBackdrop').classList.add('hidden'); }
+async function copyWeeklyReport() {
+  try {
+    await navigator.clipboard.writeText(window.__weeklyReportText || '');
+    toast('周报已复制');
+  } catch { toast('复制失败，请手动选择内容'); }
 }
 
 function openModal(mode, date = '', quadrant = 'unassigned', itemId = null) {
@@ -251,10 +323,11 @@ function handleCapture(event) {
     const values = { title, note: document.getElementById('captureNote').value.trim(), due: document.getElementById('captureDate').value, quadrant: document.getElementById('captureQuadrant').value };
     const tasks = getTaskCollection(modalTaskBoard);
     const item = editingId ? tasks.find(entry => entry.id === editingId) : null;
+    const savedAt = new Date().toISOString();
     if (item) {
       if (item.quadrant !== values.quadrant) item.sortOrder = nextSortOrder(tasks, values.quadrant);
-      Object.assign(item, values);
-    } else tasks.push({ id: `${modalTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`, ...values, done: false, sortOrder: nextSortOrder(tasks, values.quadrant) });
+      Object.assign(item, values, { updatedAt: savedAt });
+    } else tasks.push({ id: `${modalTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`, ...values, done: false, createdAt: savedAt, updatedAt: savedAt, sortOrder: nextSortOrder(tasks, values.quadrant) });
     saveData(); closeModal(); renderBoard(); toast(item ? '任务已更新' : '任务已添加');
   }
 }
@@ -332,6 +405,7 @@ document.getElementById('nextMonth').addEventListener('click', () => { currentMo
 document.getElementById('todayButton').addEventListener('click', () => { currentMonth = new Date(today.getFullYear(), today.getMonth(), 1); switchView('calendar'); renderCalendar(); });
 document.getElementById('addScheduleButton').addEventListener('click', () => openModal('event'));
 document.getElementById('addTaskButton').addEventListener('click', () => openModal('task'));
+document.getElementById('weeklyReportButton').addEventListener('click', openWeeklyReport);
 document.getElementById('closeModal').addEventListener('click', closeModal); document.getElementById('cancelModal').addEventListener('click', closeModal);
 document.getElementById('modalBackdrop').addEventListener('click', event => { if (event.target.id === 'modalBackdrop') closeModal(); });
 document.getElementById('closeProjectModal').addEventListener('click', closeProjectModal); document.getElementById('cancelProjectModal').addEventListener('click', closeProjectModal);
@@ -341,8 +415,11 @@ document.getElementById('confirmDelete').addEventListener('click', confirmDeleti
 document.getElementById('confirmBackdrop').addEventListener('click', event => { if (event.target.id === 'confirmBackdrop') closeDeleteConfirm(); });
 document.getElementById('captureForm').addEventListener('submit', handleCapture);
 document.getElementById('projectForm').addEventListener('submit', handleProjectForm);
+document.getElementById('closeWeeklyReport').addEventListener('click', closeWeeklyReport); document.getElementById('closeWeeklyReportButton').addEventListener('click', closeWeeklyReport);
+document.getElementById('weeklyReportBackdrop').addEventListener('click', event => { if (event.target.id === 'weeklyReportBackdrop') closeWeeklyReport(); });
+document.getElementById('copyWeeklyReportButton').addEventListener('click', copyWeeklyReport);
 document.getElementById('searchInput').addEventListener('input', renderBoard);
-document.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); document.getElementById('searchInput').focus(); } if (event.key === 'Escape') { closeModal(); closeDeleteConfirm(); closeProjectModal(); } });
+document.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); document.getElementById('searchInput').focus(); } if (event.key === 'Escape') { closeModal(); closeDeleteConfirm(); closeProjectModal(); closeWeeklyReport(); } });
 document.getElementById('todayLabel').textContent = formatToday(today);
 renderCalendar(); updateBoardUi(); renderBoard(); initIcons();
 window.cloudStore?.init({
