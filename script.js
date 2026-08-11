@@ -125,10 +125,11 @@ function setTaskCollection(boardId, tasks) {
 function renderProjectNav() {
   const root = document.getElementById('projectNav');
   if (!root) return;
+  const boardViewActive = document.getElementById('calendarView')?.classList.contains('hidden');
   root.innerHTML = data.projectBoards.map(board => {
     const count = getTaskCollection(board.id).filter(task => !task.done).length;
     const icon = board.id === 'park' ? 'building-2' : board.id === 'board' ? 'layout-dashboard' : 'folder-kanban';
-    return `<div class="project-nav-item"><button class="nav-item ${activeTaskBoard === board.id ? 'active' : ''}" data-view="project" data-project-id="${escapeHtml(board.id)}" type="button"><i data-lucide="${icon}"></i><span>${escapeHtml(board.name)}</span><span class="nav-count">${count}</span></button><button class="nav-rename" data-project-id="${escapeHtml(board.id)}" type="button" title="重命名项目"><i data-lucide="pencil"></i></button></div>`;
+    return `<div class="project-nav-item"><button class="nav-item ${boardViewActive && activeTaskBoard === board.id ? 'active' : ''}" data-view="project" data-project-id="${escapeHtml(board.id)}" type="button"><i data-lucide="${icon}"></i><span>${escapeHtml(board.name)}</span><span class="nav-count">${count}</span></button><button class="nav-rename" data-project-id="${escapeHtml(board.id)}" type="button" title="重命名项目"><i data-lucide="pencil"></i></button></div>`;
   }).join('');
   root.querySelectorAll('.nav-item').forEach(button => button.addEventListener('click', () => switchView('project', button.dataset.projectId)));
   root.querySelectorAll('.nav-rename').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); openProjectModal(button.dataset.projectId); }));
