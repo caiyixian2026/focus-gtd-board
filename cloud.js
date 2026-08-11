@@ -190,7 +190,15 @@
     document.getElementById('continueLocalButton')?.addEventListener('click', () => { hideAuth(); setSyncStatus('local', '本地模式'); });
     if (!configured) { setSyncStatus('local', '本地模式'); return; }
     if (!window.supabase?.createClient) { setSyncStatus('error', '组件未加载'); return; }
-    client = window.supabase.createClient(config.url, config.publishableKey);
+    client = window.supabase.createClient(config.url, config.publishableKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: window.localStorage,
+        storageKey: 'focus-gtd-auth'
+      }
+    });
     client.auth.onAuthStateChange((_event, session) => setTimeout(() => handleSession(session), 0));
     const { data: { session } } = await client.auth.getSession();
     await handleSession(session);
