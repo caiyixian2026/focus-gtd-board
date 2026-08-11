@@ -124,3 +124,18 @@ body { font-size: 16px; }
   .nav-rename { width: 28px; opacity: 1; }
   .add-project-nav { flex-basis: 128px; }
 }
+
+.report-modal { width: min(680px, 100%); }
+.report-sections { display: grid; gap: 14px; }
+.report-section { border: 1px solid var(--line); background: #fafbfb; padding: 16px; }
+.report-section h3 { margin: 0 0 10px; color: #20252c; font-size: 16px; }
+.report-items { margin: 0; padding-left: 20px; display: grid; gap: 11px; }
+.report-item-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #20252c; font-size: 14px; font-weight: 700; }
+.report-project { border-radius: 4px; background: #e4eef4; color: #386179; padding: 2px 6px; font-size: 12px; font-weight: 600; }
+.report-item-note { margin-top: 3px; color: #5f6872; font-size: 13px; line-height: 1.45; }
+.report-item-due { margin-top: 3px; color: #737d87; font-size: 12px; }
+.report-empty { margin: 0; color: #737d87; font-size: 14px; }
+@media (max-width: 720px) {
+  .report-section { padding: 14px; }
+  .report-section h3 { font-size: 15px; }
+}
