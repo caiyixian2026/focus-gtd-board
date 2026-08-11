@@ -103,3 +103,24 @@ body { font-size: 16px; }
   .board-summary { gap: 20px; margin-bottom: 18px; }
   .quadrants { gap: 12px; }
 }
+
+.project-nav { display: contents; }
+.project-nav-item { display: grid; grid-template-columns: minmax(0, 1fr) 30px; align-items: stretch; min-width: 0; }
+.project-nav-item .nav-item { min-width: 0; }
+.project-nav-item .nav-item span:not(.nav-count) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-rename { width: 30px; border: 0; border-radius: 5px; background: transparent; color: #777e85; display: grid; place-items: center; opacity: 0; transition: .15s ease; }
+.project-nav-item:hover .nav-rename, .nav-rename:focus-visible { opacity: 1; background: #24272c; color: #fff; }
+.nav-rename svg { width: 14px; height: 14px; }
+.add-project-nav { color: #858b94; border: 1px dashed #3a3e44; }
+.add-project-nav:hover { color: #fff; border-color: #636970; }
+@media (max-width: 900px) and (orientation: landscape) {
+  .main-nav { overflow-x: auto; scrollbar-width: thin; }
+  .main-nav > .nav-item, .project-nav-item { flex: 0 0 150px; }
+}
+@media (max-width: 720px) {
+  .main-nav { display: flex; overflow-x: auto; scrollbar-width: thin; }
+  .main-nav > .nav-item, .project-nav-item { flex: 0 0 128px; }
+  .project-nav-item { display: grid; grid-template-columns: minmax(0, 1fr) 28px; }
+  .nav-rename { width: 28px; opacity: 1; }
+  .add-project-nav { flex-basis: 128px; }
+}
