@@ -260,13 +260,21 @@ function buildWeeklyReport(reference = new Date()) {
   const next = tasks.filter(({ task }) => !task.done && dateInRange(dateOnly(task.due), window.nextStart, window.followingStart)).map(({ task, project }) => reportTaskItem(task, project));
   return { weekStart: isoDate(window.start), sections: { completed, ongoing, next } };
 }
-function renderReportItems(items) {
+function reportNarrative(item, section) {
+  if (item.narrative) return item.narrative;
+  const title = `“${item.title}”`;
+  const note = item.note ? `围绕${title}中的“${item.note}”` : `围绕${title}`;
+  if (section === 'completed') return `${note}已完成相关工作，形成阶段性交付，为后续工作推进提供了支撑。`;
+  if (section === 'ongoing') return `正在推进${title}，当前重点是“${item.note || '关键任务节点'}”，持续跟进落实，保障工作按计划落地。`;
+  return `下周将推进${title}，重点完成“${item.note || '既定工作任务'}”，目标是形成明确交付并支撑下一阶段工作。`;
+}
+function renderReportItems(items, section) {
   if (!items?.length) return '<p class="report-empty">本周暂无登记内容</p>';
-  return `<ul class="report-items">${items.map(item => `<li><div class="report-item-title">${escapeHtml(item.title)}<span class="report-project">${escapeHtml(item.project)}</span></div>${item.note ? `<div class="report-item-note">${escapeHtml(item.note)}</div>` : ''}${item.due ? `<div class="report-item-due">截止 ${escapeHtml(item.due)}</div>` : ''}</li>`).join('')}</ul>`;
+  return `<ul class="report-items">${items.map(item => `<li><div class="report-item-title">${escapeHtml(item.title)}<span class="report-project">${escapeHtml(item.project)}</span></div>${item.note ? `<div class="report-item-note"><b>工作备注：</b>${escapeHtml(item.note)}</div>` : ''}<div class="report-item-outcome"><b>工作成效：</b>${escapeHtml(reportNarrative(item, section))}</div>${item.due ? `<div class="report-item-due">截止 ${escapeHtml(item.due)}</div>` : ''}</li>`).join('')}</ul>`;
 }
 function reportPlainText(report) {
-  const labels = [['一、本周已完成的工作', report.sections.completed], ['二、本周进行的工作', report.sections.ongoing], ['三、下周待完成的工作', report.sections.next]];
-  return labels.map(([label, items]) => `${label}\n${items?.length ? items.map(item => `- ${item.title}${item.project ? `（${item.project}）` : ''}${item.note ? `：${item.note}` : ''}${item.due ? `，截止 ${item.due}` : ''}`).join('\n') : '暂无登记内容'}`).join('\n\n');
+  const labels = [['一、本周已完成的工作', 'completed', report.sections.completed], ['二、本周进行的工作', 'ongoing', report.sections.ongoing], ['三、下周待完成的工作', 'next', report.sections.next]];
+  return labels.map(([label, section, items]) => `${label}\n${items?.length ? items.map(item => `- ${reportNarrative(item, section)}${item.project ? `\n  项目：${item.project}` : ''}${item.note ? `\n  工作备注：${item.note}` : ''}${item.due ? `\n  截止：${item.due}` : ''}`).join('\n') : '暂无登记内容'}`).join('\n\n');
 }
 async function openWeeklyReport() {
   const preview = buildWeeklyReport();
@@ -274,9 +282,9 @@ async function openWeeklyReport() {
   const report = stored?.sections ? { weekStart: stored.week_start, sections: stored.sections } : preview;
   const sourceLabel = stored ? `自动归档 · ${new Date(stored.generated_at).toLocaleString('zh-CN')}` : '当前任务预览 · 周五 14:00 自动归档';
   document.getElementById('weeklyReportMeta').textContent = sourceLabel;
-  document.getElementById('weeklyCompleted').innerHTML = renderReportItems(report.sections.completed);
-  document.getElementById('weeklyOngoing').innerHTML = renderReportItems(report.sections.ongoing);
-  document.getElementById('weeklyNext').innerHTML = renderReportItems(report.sections.next);
+  document.getElementById('weeklyCompleted').innerHTML = renderReportItems(report.sections.completed, 'completed');
+  document.getElementById('weeklyOngoing').innerHTML = renderReportItems(report.sections.ongoing, 'ongoing');
+  document.getElementById('weeklyNext').innerHTML = renderReportItems(report.sections.next, 'next');
   window.__weeklyReportText = reportPlainText(report);
   document.getElementById('weeklyReportBackdrop').classList.remove('hidden');
   initIcons();
