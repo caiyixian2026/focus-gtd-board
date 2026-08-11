@@ -200,8 +200,10 @@ function openModal(mode, date = '', quadrant = 'unassigned', itemId = null) {
   document.getElementById('captureDate').value = item ? (mode === 'event' ? item.date : item.due) : (date || isoDate(today));
   document.getElementById('captureTitle').value = item?.title || '';
   document.getElementById('captureNote').value = item?.note || '';
+  document.getElementById('captureTypeLabel').classList.toggle('hidden', mode !== 'event');
   document.getElementById('captureQuadrantLabel').classList.toggle('hidden', mode !== 'task');
   document.getElementById('captureTimeLabel').classList.toggle('hidden', mode !== 'event');
+  document.getElementById('captureType').value = item?.type || 'work';
   document.getElementById('captureQuadrant').value = item?.quadrant || quadrant;
   document.getElementById('captureTime').value = item?.time || '09:00';
   setTimeout(() => document.getElementById('captureTitle').focus(), 60);
@@ -212,9 +214,9 @@ function handleCapture(event) {
   const title = document.getElementById('captureTitle').value.trim();
   if (!title) return;
   if (modalMode === 'event') {
-    const values = { date: document.getElementById('captureDate').value, time: document.getElementById('captureTime').value || '全天', title, note: document.getElementById('captureNote').value.trim() };
+    const values = { date: document.getElementById('captureDate').value, time: document.getElementById('captureTime').value || '全天', title, note: document.getElementById('captureNote').value.trim(), type: document.getElementById('captureType').value };
     const item = editingId ? data.events.find(entry => entry.id === editingId) : null;
-    if (item) Object.assign(item, values); else data.events.push({ id: `e-${Date.now()}`, ...values, type: 'work' });
+    if (item) Object.assign(item, values); else data.events.push({ id: `e-${Date.now()}`, ...values });
     saveData(); closeModal(); renderCalendar(); toast(item ? '行程已更新' : '行程已添加');
   } else {
     const values = { title, note: document.getElementById('captureNote').value.trim(), due: document.getElementById('captureDate').value, quadrant: document.getElementById('captureQuadrant').value };
