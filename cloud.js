@@ -177,6 +177,21 @@
     }
   }
 
+  async function getWeeklyReport(weekStart) {
+    if (!client || !currentUser) return null;
+    const { data, error } = await client
+      .from('weekly_reports')
+      .select('week_start, sections, generated_at')
+      .eq('user_id', currentUser.id)
+      .eq('week_start', weekStart)
+      .maybeSingle();
+    if (error) {
+      console.warn('Weekly report is unavailable', error.message);
+      return null;
+    }
+    return data;
+  }
+
   async function init(nextCallbacks) {
     callbacks = nextCallbacks;
     updateAccountUi();
@@ -205,5 +220,5 @@
     window.addEventListener('focus', () => { if (currentUser) pullCloudData().catch(() => setSyncStatus('error', '同步失败')); });
   }
 
-  window.cloudStore = { init, schedulePush, configured: () => configured };
+  window.cloudStore = { init, schedulePush, getWeeklyReport, configured: () => configured };
 })();
