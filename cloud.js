@@ -144,6 +144,39 @@
     document.getElementById('accountPopover')?.classList.add('hidden');
   }
 
+  function exportBoardData() {
+    if (!callbacks) return;
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: callbacks.getData()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `focus-gtd-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importBoardData(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !callbacks) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const imported = parsed.data || parsed;
+      if (!validBoardData(imported)) throw new Error('invalid data');
+      callbacks.applyData(imported);
+      schedulePush(imported);
+      window.toast?.(currentUser ? '数据已导入并开始同步' : '数据已导入到本地');
+      document.getElementById('accountPopover')?.classList.add('hidden');
+    } catch {
+      window.toast?.('导入失败，请选择有效的看板备份文件');
+    }
+  }
+
   async function init(nextCallbacks) {
     callbacks = nextCallbacks;
     updateAccountUi();
@@ -151,6 +184,9 @@
     document.getElementById('authForm')?.addEventListener('submit', signIn);
     document.getElementById('signUpButton')?.addEventListener('click', signUp);
     document.getElementById('signOutButton')?.addEventListener('click', signOut);
+    document.getElementById('exportDataButton')?.addEventListener('click', exportBoardData);
+    document.getElementById('importDataButton')?.addEventListener('click', () => document.getElementById('importDataInput')?.click());
+    document.getElementById('importDataInput')?.addEventListener('change', importBoardData);
     document.getElementById('continueLocalButton')?.addEventListener('click', () => { hideAuth(); setSyncStatus('local', '本地模式'); });
     if (!configured) { setSyncStatus('local', '本地模式'); return; }
     if (!window.supabase?.createClient) { setSyncStatus('error', '组件未加载'); return; }

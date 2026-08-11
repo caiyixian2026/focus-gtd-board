@@ -55,7 +55,7 @@
           <div class="sync-status local" id="syncStatus"><i data-lucide="hard-drive"></i><span>本地模式</span></div>
           <button class="icon-button" id="todayButton" type="button" title="回到今天"><i data-lucide="locate-fixed"></i></button>
           <button class="avatar top-avatar" id="accountButton" type="button" title="账户与同步">你</button>
-          <div class="account-popover hidden" id="accountPopover"><strong id="accountEmail">本地账户</strong><span id="accountMode">数据仅保存在此设备</span><button class="secondary-button hidden" id="signOutButton" type="button"><i data-lucide="log-out"></i>退出登录</button></div>
+          <div class="account-popover hidden" id="accountPopover"><strong id="accountEmail">本地账户</strong><span id="accountMode">数据仅保存在此设备</span><div class="account-data-actions"><button class="secondary-button" id="exportDataButton" type="button"><i data-lucide="download"></i>导出数据</button><button class="secondary-button" id="importDataButton" type="button"><i data-lucide="upload"></i>导入数据</button><input class="hidden" id="importDataInput" type="file" accept="application/json,.json" /></div><button class="secondary-button hidden sign-out-button" id="signOutButton" type="button"><i data-lucide="log-out"></i>退出登录</button></div>
         </div>
       </header>
 
