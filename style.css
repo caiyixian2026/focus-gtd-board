@@ -133,6 +133,8 @@ body { font-size: 16px; }
 .report-item-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #20252c; font-size: 14px; font-weight: 700; }
 .report-project { border-radius: 4px; background: #e4eef4; color: #386179; padding: 2px 6px; font-size: 12px; font-weight: 600; }
 .report-item-note { margin-top: 3px; color: #5f6872; font-size: 13px; line-height: 1.45; }
+.report-item-outcome { margin-top: 6px; border-left: 3px solid #4f8990; padding-left: 8px; color: #314d55; font-size: 13px; line-height: 1.5; }
+.report-item-note b, .report-item-outcome b { margin-right: 4px; }
 .report-item-due { margin-top: 3px; color: #737d87; font-size: 12px; }
 .report-empty { margin: 0; color: #737d87; font-size: 14px; }
 @media (max-width: 720px) {
