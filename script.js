@@ -1,6 +1,7 @@
 const today = new Date();
 const storageKey = 'focus-gtd-data-v1';
 const sidebarStorageKey = 'focus-gtd-sidebar-collapsed';
+const taskStatusLabels = { 'in-progress': '进行中', waiting: '等待中', completed: '已完成' };
 const defaultData = {
   events: [
     { id: 'e1', date: isoDate(new Date(today.getFullYear(), today.getMonth(), 5)), time: '09:30', title: '月度目标复盘', type: 'important' },
@@ -55,9 +56,13 @@ function normalizeTaskCollection(tasks) {
   if (!Array.isArray(tasks)) return [];
   return tasks.map((task, index) => {
     const recurrence = task.recurrence === 'monthly' ? 'monthly' : 'none';
+    const status = taskStatusLabels[task.status] ? task.status : null;
+    const done = Boolean(task.done) || status === 'completed';
     const dueDay = Number(String(task.due || '').slice(-2));
     return {
       ...task,
+      done,
+      status: done ? 'completed' : status,
       recurrence,
       recurrenceDay: recurrence === 'monthly' && Number.isInteger(task.recurrenceDay) ? task.recurrenceDay : (recurrence === 'monthly' && dueDay >= 1 && dueDay <= 31 ? dueDay : null),
       sortOrder: Number.isFinite(task.sortOrder) ? task.sortOrder : index * 1000
@@ -171,6 +176,12 @@ function renderProjectNav() {
 }
 function sortTasks(tasks) { return [...tasks].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id)); }
 function nextSortOrder(tasks, quadrant) { const values = tasks.filter(task => task.quadrant === quadrant).map(task => task.sortOrder); return values.length ? Math.max(...values) + 1000 : 1000; }
+function getTaskStatus(task) {
+  if (task.done) return 'completed';
+  if (task.status === 'in-progress' || task.status === 'waiting') return task.status;
+  const columnTitle = getBoardColumns().find(column => column.id === task.quadrant)?.title || '';
+  return /等待|待反馈|待回复/.test(columnTitle) ? 'waiting' : 'in-progress';
+}
 function updateBoardUi() {
   const board = getProjectBoard();
   document.getElementById('boardEyebrow').textContent = board.id === 'board' ? 'TASKS / PROJECT BOARD' : board.id === 'park' ? 'PARK / PROJECT WORK' : 'PROJECT / TASK BOARD';
@@ -198,7 +209,7 @@ function renderBoard() {
   root.querySelector('.add-column-card')?.addEventListener('click', openColumnsModal);
   updateStats(); renderProjectNav(); initIcons();
 }
-function renderTask(task) { const due = task.due ? task.due.slice(5).replace('-', '/') : '无截止'; const overdue = task.due && task.due < isoDate(today) && !task.done; return `<article class="task-card ${task.done ? 'done' : ''}" draggable="true" data-task-id="${task.id}"><button class="task-check" type="button" title="标记完成"><i data-lucide="check"></i></button><div><div class="task-name">${escapeHtml(task.title)}</div>${task.note ? `<div class="task-note">${escapeHtml(task.note)}</div>` : ''}${task.recurrence === 'monthly' ? '<span class="task-recurrence"><i data-lucide="repeat-2"></i>每月重复</span>' : ''}</div><div class="task-side"><span class="task-due ${overdue ? 'overdue' : ''}">${due}</span><div class="card-actions"><button class="mini-action edit-task" type="button" title="编辑任务"><i data-lucide="pencil"></i></button><button class="mini-action delete delete-task" type="button" title="删除任务"><i data-lucide="trash-2"></i></button></div></div></article>`; }
+function renderTask(task) { const due = task.due ? task.due.slice(5).replace('-', '/') : '无截止'; const overdue = task.due && task.due < isoDate(today) && !task.done; const status = getTaskStatus(task); return `<article class="task-card ${task.done ? 'done' : ''}" draggable="true" data-task-id="${task.id}"><button class="task-check" type="button" title="标记完成"><i data-lucide="check"></i></button><div><div class="task-name">${escapeHtml(task.title)}</div>${task.note ? `<div class="task-note">${escapeHtml(task.note)}</div>` : ''}<div class="task-labels"><span class="task-status status-${status}">${taskStatusLabels[status]}</span>${task.recurrence === 'monthly' ? '<span class="task-recurrence"><i data-lucide="repeat-2"></i>每月重复</span>' : ''}</div></div><div class="task-side"><span class="task-due ${overdue ? 'overdue' : ''}">${due}</span><div class="card-actions"><button class="mini-action edit-task" type="button" title="编辑任务"><i data-lucide="pencil"></i></button><button class="mini-action delete delete-task" type="button" title="删除任务"><i data-lucide="trash-2"></i></button></div></div></article>`; }
 function onTaskDragStart(event) { dragPayload = { kind: 'task', id: event.currentTarget.dataset.taskId, board: activeTaskBoard }; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', dragPayload.id); event.currentTarget.classList.add('dragging'); }
 function clearTaskDropIndicators() { document.querySelectorAll('.task-list.drop-target').forEach(list => list.classList.remove('drop-target')); document.querySelectorAll('.task-card.drop-before, .task-card.drop-after').forEach(card => card.classList.remove('drop-before', 'drop-after')); }
 function onTaskDragEnd(event) { event.currentTarget.classList.remove('dragging'); clearTaskDropIndicators(); dragPayload = null; }
@@ -273,9 +284,17 @@ function toggleTask(event) {
   const id = event.currentTarget.closest('.task-card').dataset.taskId;
   const task = getTaskCollection().find(entry => entry.id === id);
   if (!task) return;
+  const previousStatus = getTaskStatus(task);
   task.done = !task.done;
   task.updatedAt = new Date().toISOString();
   task.completedAt = task.done ? task.updatedAt : null;
+  if (task.done) {
+    task.statusBeforeCompletion = previousStatus === 'completed' ? 'in-progress' : previousStatus;
+    task.status = 'completed';
+  } else {
+    task.status = task.statusBeforeCompletion === 'waiting' ? 'waiting' : 'in-progress';
+    task.statusBeforeCompletion = null;
+  }
   let nextTaskCreated = false;
   if (task.done && task.recurrence === 'monthly' && task.due) {
     const nextDue = nextMonthlyDueDate(task);
@@ -368,11 +387,13 @@ function openModal(mode, date = '', quadrant = '', itemId = null) {
   document.getElementById('captureTypeLabel').classList.toggle('hidden', mode !== 'event');
   document.getElementById('captureQuadrantLabel').classList.toggle('hidden', mode !== 'task');
   document.getElementById('captureTimeLabel').classList.toggle('hidden', mode !== 'event');
+  document.getElementById('captureTaskStatusLabel').classList.toggle('hidden', mode !== 'task');
   document.getElementById('captureRecurrenceLabel').classList.toggle('hidden', mode !== 'task');
   document.getElementById('captureType').value = item?.type || 'work';
   if (mode === 'task') {
     renderTaskColumnOptions(item?.quadrant || quadrant);
     document.getElementById('captureMonthlyRecurrence').checked = item?.recurrence === 'monthly';
+    document.getElementById('captureTaskStatus').value = item ? getTaskStatus(item) : 'in-progress';
   }
   document.getElementById('captureTime').value = item?.time || '09:00';
   setTimeout(() => document.getElementById('captureTitle').focus(), 60);
@@ -388,15 +409,19 @@ function handleCapture(event) {
     if (item) Object.assign(item, values); else data.events.push({ id: `e-${Date.now()}`, ...values });
     saveData(); closeModal(); renderCalendar(); toast(item ? '行程已更新' : '行程已添加');
   } else {
-    const values = { title, note: document.getElementById('captureNote').value.trim(), due: document.getElementById('captureDate').value, quadrant: document.getElementById('captureQuadrant').value, recurrence: document.getElementById('captureMonthlyRecurrence').checked ? 'monthly' : 'none' };
+    const values = { title, note: document.getElementById('captureNote').value.trim(), due: document.getElementById('captureDate').value, quadrant: document.getElementById('captureQuadrant').value, recurrence: document.getElementById('captureMonthlyRecurrence').checked ? 'monthly' : 'none', status: document.getElementById('captureTaskStatus').value };
     const tasks = getTaskCollection(modalTaskBoard);
     const item = editingId ? tasks.find(entry => entry.id === editingId) : null;
     const savedAt = new Date().toISOString();
     if (item) {
       if (item.quadrant !== values.quadrant) item.sortOrder = nextSortOrder(tasks, values.quadrant);
       const recurrenceDay = values.recurrence === 'monthly' ? (item.due === values.due && Number.isInteger(item.recurrenceDay) ? item.recurrenceDay : Number(values.due.slice(-2))) : null;
-      Object.assign(item, values, { recurrenceDay, updatedAt: savedAt });
-    } else tasks.push({ id: `${modalTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`, ...values, recurrenceDay: values.recurrence === 'monthly' ? Number(values.due.slice(-2)) : null, done: false, createdAt: savedAt, updatedAt: savedAt, sortOrder: nextSortOrder(tasks, values.quadrant) });
+      const done = values.status === 'completed';
+      Object.assign(item, values, { recurrenceDay, done, completedAt: done ? (item.completedAt || savedAt) : null, updatedAt: savedAt });
+    } else {
+      const done = values.status === 'completed';
+      tasks.push({ id: `${modalTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`, ...values, recurrenceDay: values.recurrence === 'monthly' ? Number(values.due.slice(-2)) : null, done, completedAt: done ? savedAt : null, createdAt: savedAt, updatedAt: savedAt, sortOrder: nextSortOrder(tasks, values.quadrant) });
+    }
     saveData(); closeModal(); renderBoard(); toast(item ? '任务已更新' : '任务已添加');
   }
 }
