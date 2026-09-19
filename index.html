@@ -33,6 +33,10 @@
         </button>
       </nav>
 
+      <button class="nav-item chat-nav-bottom" id="chatNavButton" data-view="chat" type="button">
+        <i data-lucide="message-circle"></i><span>聊天素材</span><span class="nav-count" id="chatPracticeCount">0/1</span>
+      </button>
+
       <div class="sidebar-rule"></div>
       <div class="sidebar-section-label">GTD 流程</div>
       <div class="flow-list">
@@ -79,22 +83,80 @@
 
       <section class="page-view board-view hidden" id="boardView">
         <div class="view-heading">
-          <div><div class="eyebrow" id="boardEyebrow">TASKS / WEEKLY REVIEW</div><h1 id="boardHeading">任务安排</h1><p id="boardCaption">清晰分辨下一步，让每件事都有归处。</p></div>
-          <div class="heading-tools"><div class="review-chip"><i data-lucide="check-check"></i><span><b id="doneCount">0</b> 项已完成</span></div><button class="secondary-button" id="weeklyReportButton" type="button" title="查看本周周报"><i data-lucide="file-text"></i>周报</button><button class="primary-button" id="addTaskButton" type="button"><i data-lucide="plus"></i>新增任务</button></div>
+          <div><div class="eyebrow" id="boardEyebrow">TASKS / PROJECT BOARD</div><h1 id="boardHeading">任务安排</h1><p id="boardCaption">清晰分辨下一步，让每件事都有归处。</p></div>
+          <div class="heading-tools"><button class="secondary-button" id="manageColumnsButton" type="button"><i data-lucide="columns-3"></i>管理栏目</button><button class="primary-button" id="addTaskButton" type="button"><i data-lucide="plus"></i>新增任务</button></div>
         </div>
-        <div class="board-summary"><div><span class="summary-number" id="totalTaskCount">0</span><span class="summary-label">全部任务</span></div><div><span class="summary-number coral-text" id="activeTaskCount">0</span><span class="summary-label">进行中</span></div><div><span class="summary-number teal-text" id="waitingTaskCount">0</span><span class="summary-label">等待中</span></div><div class="summary-note"><i data-lucide="info"></i><span>拖拽任务卡片，可跨象限移动或在同一象限内排序</span></div></div>
+        <div class="board-summary"><div><span class="summary-number" id="totalTaskCount">0</span><span class="summary-label">全部任务</span></div><div><span class="summary-number coral-text" id="activeTaskCount">0</span><span class="summary-label">未完成</span></div><div><span class="summary-number teal-text" id="completedTaskCount">0</span><span class="summary-label">已完成</span></div><div><span class="summary-number violet-text" id="columnCount">0</span><span class="summary-label">栏目</span></div><div class="summary-note"><i data-lucide="info"></i><span>任务可跨栏目移动；拖动栏目标题可调整顺序</span></div></div>
         <div class="quadrants" id="quadrants"></div>
+      </section>
+
+      <section class="page-view chat-view hidden" id="chatView">
+        <div class="view-heading chat-heading">
+          <div>
+            <div class="eyebrow">CONVERSATION / DAILY PRACTICE <span id="chatDateLabel"></span></div>
+            <h1>今日聊天素材</h1>
+            <p>每天只练一个热点，把“知道发生了什么”变成“可以自然聊起来”。</p>
+          </div>
+          <div class="heading-tools"><div class="chat-streak"><i data-lucide="flame"></i><span><b id="chatStreakCount">0</b> 天练习</span></div><button class="primary-button" id="hotNewsButton" type="button"><i data-lucide="rss"></i>今日热点</button></div>
+        </div>
+
+        <div class="chat-layout">
+          <article class="hotspot-card" id="hotspotCard">
+            <div class="hotspot-topline"><span class="hotspot-tag" id="hotspotCategory">科技趋势</span><span class="hotspot-freshness" id="hotspotFreshness">今日练习</span></div>
+            <h2 id="hotspotTitle"></h2>
+            <p class="hotspot-summary" id="hotspotSummary"></p>
+            <div class="hotspot-context"><i data-lucide="sparkles"></i><span id="hotspotWhy"></span></div>
+            <div class="hotspot-source"><span>素材说明</span><span id="hotspotSource"></span></div>
+          </article>
+
+          <aside class="practice-card">
+            <div class="practice-card-header"><div><div class="eyebrow">TODAY'S DRILL</div><h2>今天只练这一件事</h2></div><span class="practice-step">01</span></div>
+            <p id="practiceTask">先用自己的话讲出一个 30 秒开场，再尝试追问一层。</p>
+            <label class="practice-check"><input id="chatPracticeDone" type="checkbox" /><span class="checkmark"><i data-lucide="check"></i></span><span>我已经尝试过一次</span></label>
+          </aside>
+        </div>
+
+        <div class="conversation-path">
+          <div class="section-heading"><div><div class="eyebrow">TALK PATH / 4 STEPS</div><h2>把热点变成一段对话</h2></div><span class="path-tip"><i data-lucide="clock-3"></i>约 3 分钟</span></div>
+          <div class="path-grid">
+            <article class="path-card path-open"><div class="path-index">01</div><div><span class="path-label">开口</span><h3 id="chatOpenTitle"></h3><p id="chatOpenText"></p><button class="text-action copy-chat-line" data-copy-target="chatOpenText" type="button"><i data-lucide="copy"></i>复制这句</button></div></article>
+            <article class="path-card path-follow"><div class="path-index">02</div><div><span class="path-label">展开</span><h3>追问对方的实际体验</h3><p id="chatFollowText"></p></div></article>
+            <article class="path-card path-share"><div class="path-index">03</div><div><span class="path-label">分享</span><h3>补充一点你的观察</h3><p id="chatShareText"></p></div></article>
+            <article class="path-card path-bridge"><div class="path-index">04</div><div><span class="path-label">转场</span><h3>自然连接到工作</h3><p id="chatBridgeText"></p></div></article>
+          </div>
+        </div>
+
+        <div class="chat-bottom-grid">
+          <section class="question-bank"><div class="section-heading"><div><div class="eyebrow">QUESTION BANK</div><h2>可以继续问什么</h2></div></div><div class="question-list" id="chatQuestions"></div></section>
+          <section class="conversation-note"><div class="section-heading"><div><div class="eyebrow">YOUR ANGLE</div><h2>留一个自己的角度</h2></div></div><textarea id="chatAngleInput" rows="5" placeholder="写下你愿意分享的一点经历、观察或判断……"></textarea><div class="note-footer"><span id="chatSavedHint">只保存在本设备</span><button class="secondary-button" id="saveChatAngleButton" type="button"><i data-lucide="save"></i>保存</button></div></section>
+        </div>
+      </section>
+
+      <section class="page-view hot-news-view hidden" id="hotNewsView">
+        <div class="view-heading hot-news-heading">
+          <div><div class="eyebrow">NEWS / DAILY SCAN <span id="hotNewsDateLabel"></span></div><h1>今日热点</h1><p>每天先读 5 条一句话动态，再挑一条转换成聊天素材。</p></div>
+          <div class="heading-tools"><span class="news-refresh-note" id="hotNewsStatus">正在准备今日动态</span><button class="secondary-button" id="importHotNewsButton" type="button"><i data-lucide="link"></i>导入热点链接</button><button class="secondary-button" id="refreshHotNewsButton" type="button"><i data-lucide="refresh-cw"></i>刷新</button></div>
+        </div>
+        <div class="news-intro"><i data-lucide="info"></i><span>先快速扫选，再用右侧速读模块理解背景。选择你真正感兴趣的一条，最后把它转换成聊天素材。</span></div>
+        <div class="hot-news-workspace">
+          <section class="hot-news-list-panel"><div class="list-panel-heading"><div><div class="eyebrow">TODAY / 5 ITEMS</div><h2>热点清单</h2></div><span id="hotNewsListCount">0 条</span></div><div class="hot-news-list" id="hotNewsList"></div></section>
+          <aside class="hot-news-detail" id="hotNewsDetail"><div class="detail-empty"><i data-lucide="mouse-pointer-click"></i><h2>选择一条热点</h2><p>右侧会显示 1 分钟内可以读完的速读内容。</p></div></aside>
+        </div>
       </section>
     </main>
   </div>
 
-  <div class="modal-backdrop hidden" id="modalBackdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><div><div class="eyebrow">QUICK CAPTURE</div><h2 id="modalTitle">新增行程</h2></div><button class="icon-button subtle" id="closeModal" type="button" title="关闭"><i data-lucide="x"></i></button></div><form id="captureForm"><label>标题<input id="captureTitle" required maxlength="60" placeholder="例如：和设计团队对齐方案" /></label><label id="captureTypeLabel">类别<select id="captureType"><option value="work">工作</option><option value="personal">个人</option><option value="important">重要</option></select></label><div class="form-row"><label>日期<input id="captureDate" type="date" required /></label><label id="captureQuadrantLabel" class="hidden">象限<select id="captureQuadrant"><option value="in-progress">进行中任务</option><option value="assigned">分配中任务</option><option value="waiting">等待中任务</option><option value="unassigned">待分配任务</option></select></label><label id="captureTimeLabel">时间<input id="captureTime" type="time" value="09:00" /></label></div><label>备注<textarea id="captureNote" rows="3" placeholder="补充必要的信息（可选）"></textarea></label><div class="form-footer"><button class="secondary-button" id="cancelModal" type="button">取消</button><button class="primary-button" type="submit"><i data-lucide="check"></i><span id="captureSubmitLabel">保存</span></button></div></form></div></div>
+  <div class="modal-backdrop hidden" id="modalBackdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><div><div class="eyebrow">QUICK CAPTURE</div><h2 id="modalTitle">新增行程</h2></div><button class="icon-button subtle" id="closeModal" type="button" title="关闭"><i data-lucide="x"></i></button></div><form id="captureForm"><label>标题<input id="captureTitle" required maxlength="60" placeholder="例如：和设计团队对齐方案" /></label><label id="captureTypeLabel">类别<select id="captureType"><option value="work">工作</option><option value="personal">个人</option><option value="important">重要</option></select></label><div class="form-row"><label>日期<input id="captureDate" type="date" required /></label><label id="captureQuadrantLabel" class="hidden">所属栏目<select id="captureQuadrant"></select></label><label id="captureTimeLabel">时间<input id="captureTime" type="time" value="09:00" /></label></div><label>备注<textarea id="captureNote" rows="3" placeholder="补充必要的信息（可选）"></textarea></label><div class="form-footer"><button class="secondary-button" id="cancelModal" type="button">取消</button><button class="primary-button" type="submit"><i data-lucide="check"></i><span id="captureSubmitLabel">保存</span></button></div></form></div></div>
   <div class="modal-backdrop hidden" id="projectBackdrop"><div class="modal project-modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle"><div class="modal-header"><div><div class="eyebrow">PROJECT BOARD</div><h2 id="projectModalTitle">新建项目任务看板</h2></div><button class="icon-button subtle" id="closeProjectModal" type="button" title="关闭"><i data-lucide="x"></i></button></div><form id="projectForm"><label>项目名称<input id="projectName" required maxlength="24" placeholder="例如：研发中心改造" /></label><div class="form-footer"><button class="secondary-button" id="cancelProjectModal" type="button">取消</button><button class="primary-button" type="submit"><i data-lucide="check"></i><span id="saveProjectLabel">创建看板</span></button></div></form></div></div>
-  <div class="modal-backdrop hidden" id="weeklyReportBackdrop"><div class="modal report-modal" role="dialog" aria-modal="true" aria-labelledby="weeklyReportTitle"><div class="modal-header"><div><div class="eyebrow" id="weeklyReportMeta">WEEKLY REPORT</div><h2 id="weeklyReportTitle">本周工作周报</h2></div><button class="icon-button subtle" id="closeWeeklyReport" type="button" title="关闭"><i data-lucide="x"></i></button></div><div class="report-sections"><section class="report-section"><h3>一、本周已完成的工作</h3><div id="weeklyCompleted"></div></section><section class="report-section"><h3>二、本周进行的工作</h3><div id="weeklyOngoing"></div></section><section class="report-section"><h3>三、下周待完成的工作</h3><div id="weeklyNext"></div></section></div><div class="form-footer"><button class="secondary-button" id="closeWeeklyReportButton" type="button">关闭</button><button class="primary-button" id="copyWeeklyReportButton" type="button"><i data-lucide="copy"></i>复制周报</button></div></div></div>
+  <div class="modal-backdrop hidden" id="columnsBackdrop"><div class="modal columns-modal" role="dialog" aria-modal="true" aria-labelledby="columnsModalTitle"><div class="modal-header"><div><div class="eyebrow">BOARD COLUMNS</div><h2 id="columnsModalTitle">管理栏目</h2><p class="modal-caption">每个任务页面独立配置，最多 12 个栏目。</p></div><button class="icon-button subtle" id="closeColumnsModal" type="button" title="关闭"><i data-lucide="x"></i></button></div><div class="column-editor-list" id="columnEditorList"></div><div class="column-editor-footer"><button class="secondary-button" id="addColumnButton" type="button"><i data-lucide="plus"></i>新增栏目</button><span id="columnLimitHint"></span></div><div class="form-footer"><button class="secondary-button" id="cancelColumnsModal" type="button">取消</button><button class="primary-button" id="saveColumnsButton" type="button"><i data-lucide="check"></i>保存栏目</button></div></div></div>
+  <div class="modal-backdrop hidden" id="columnDeleteBackdrop"><div class="confirm-modal column-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="columnDeleteTitle"><div class="confirm-icon"><i data-lucide="trash-2"></i></div><h2 id="columnDeleteTitle">删除这个栏目？</h2><p id="columnDeleteMessage">删除后将无法恢复。</p><label class="migration-field hidden" id="columnMigrationLabel">将现有任务移动到<select id="columnMigrationTarget"></select></label><div class="form-footer"><button class="secondary-button" id="cancelColumnDelete" type="button">取消</button><button class="danger-button" id="confirmColumnDelete" type="button"><i data-lucide="trash-2"></i>删除栏目</button></div></div></div>
   <div class="modal-backdrop hidden" id="confirmBackdrop"><div class="confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle"><div class="confirm-icon"><i data-lucide="trash-2"></i></div><h2 id="confirmTitle">确认删除？</h2><p id="confirmMessage">删除后将无法恢复。</p><div class="form-footer"><button class="secondary-button" id="cancelDelete" type="button">取消</button><button class="danger-button" id="confirmDelete" type="button"><i data-lucide="trash-2"></i>确认删除</button></div></div></div>
+  <div class="modal-backdrop hidden" id="importHotNewsBackdrop"><div class="modal link-import-modal" role="dialog" aria-modal="true" aria-labelledby="linkImportTitle"><div class="modal-header"><div><div class="eyebrow">IMPORT / PUBLIC WEB PAGE</div><h2 id="linkImportTitle">导入热点链接</h2></div><button class="icon-button subtle" id="closeLinkImport" type="button" title="关闭"><i data-lucide="x"></i></button></div><form id="linkParseForm"><label>公开网页链接<input id="newsLinkInput" type="url" required placeholder="https://example.com/news/article" /></label><p class="form-help">支持任意公开网页。遇到登录、付费墙或反爬时，可以直接补充标题和摘要。</p><div class="link-parse-message" id="linkParseMessage" role="status"></div><div class="link-preview hidden" id="linkParsePreview"><div class="preview-label">解析预览</div><h3 id="parsedNewsTitle"></h3><p id="parsedNewsSummary"></p><span id="parsedNewsSource"></span></div><div class="manual-news-form hidden" id="manualNewsForm"><div class="preview-label">手动补充</div><label>标题<input id="manualNewsTitle" maxlength="120" placeholder="输入热点标题" /></label><label>摘要或正文要点<textarea id="manualNewsSummary" rows="5" minlength="10" placeholder="粘贴摘要或用几句话说明发生了什么"></textarea></label></div><div class="form-footer"><button class="secondary-button" id="cancelLinkImport" type="button">取消</button><button class="secondary-button hidden" id="manualNewsConvertButton" type="button"><i data-lucide="message-square-plus"></i>用补充内容转换</button><button class="primary-button" id="parseNewsButton" type="submit"><i data-lucide="scan-text"></i><span id="parseNewsButtonLabel">解析链接</span></button></div></form></div></div>
   <div class="auth-backdrop hidden" id="authBackdrop"><div class="auth-panel"><div class="auth-brand"><div class="brand-mark"><i data-lucide="cloud"></i></div><div><div class="brand-name">FOCUS / CLOUD</div><div class="brand-caption">Supabase 多设备同步</div></div></div><div><div class="eyebrow">SECURE SYNC</div><h2>登录你的工作台</h2><p>在不同设备使用同一个账号，行程和任务会自动同步。</p></div><form id="authForm"><label>邮箱<input id="authEmail" type="email" autocomplete="email" required placeholder="name@example.com" /></label><label>密码<input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="至少 6 位" /></label><div class="auth-message" id="authMessage"></div><button class="primary-button auth-primary" id="signInButton" type="submit"><i data-lucide="log-in"></i>登录</button><button class="secondary-button auth-secondary" id="signUpButton" type="button">创建新账户</button><button class="text-button" id="continueLocalButton" type="button">暂时使用本地模式</button></form></div></div>
   <div class="toast" id="toast" role="status"></div>
   <script src="config.js"></script>
+  <script src="news-utils.js"></script>
+  <script src="board-model.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="cloud.js"></script>
   <script src="script.js"></script>
