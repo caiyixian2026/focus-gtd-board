@@ -53,7 +53,16 @@ function isoDate(date) {
 }
 function normalizeTaskCollection(tasks) {
   if (!Array.isArray(tasks)) return [];
-  return tasks.map((task, index) => ({ ...task, sortOrder: Number.isFinite(task.sortOrder) ? task.sortOrder : index * 1000 }));
+  return tasks.map((task, index) => {
+    const recurrence = task.recurrence === 'monthly' ? 'monthly' : 'none';
+    const dueDay = Number(String(task.due || '').slice(-2));
+    return {
+      ...task,
+      recurrence,
+      recurrenceDay: recurrence === 'monthly' && Number.isInteger(task.recurrenceDay) ? task.recurrenceDay : (recurrence === 'monthly' && dueDay >= 1 && dueDay <= 31 ? dueDay : null),
+      sortOrder: Number.isFinite(task.sortOrder) ? task.sortOrder : index * 1000
+    };
+  });
 }
 function normalizeData(value) {
   const source = value && typeof value === 'object' ? value : defaultData;
@@ -189,7 +198,7 @@ function renderBoard() {
   root.querySelector('.add-column-card')?.addEventListener('click', openColumnsModal);
   updateStats(); renderProjectNav(); initIcons();
 }
-function renderTask(task) { const due = task.due ? task.due.slice(5).replace('-', '/') : '无截止'; const overdue = task.due && task.due < isoDate(today) && !task.done; return `<article class="task-card ${task.done ? 'done' : ''}" draggable="true" data-task-id="${task.id}"><button class="task-check" type="button" title="标记完成"><i data-lucide="check"></i></button><div><div class="task-name">${escapeHtml(task.title)}</div>${task.note ? `<div class="task-note">${escapeHtml(task.note)}</div>` : ''}</div><div class="task-side"><span class="task-due ${overdue ? 'overdue' : ''}">${due}</span><div class="card-actions"><button class="mini-action edit-task" type="button" title="编辑任务"><i data-lucide="pencil"></i></button><button class="mini-action delete delete-task" type="button" title="删除任务"><i data-lucide="trash-2"></i></button></div></div></article>`; }
+function renderTask(task) { const due = task.due ? task.due.slice(5).replace('-', '/') : '无截止'; const overdue = task.due && task.due < isoDate(today) && !task.done; return `<article class="task-card ${task.done ? 'done' : ''}" draggable="true" data-task-id="${task.id}"><button class="task-check" type="button" title="标记完成"><i data-lucide="check"></i></button><div><div class="task-name">${escapeHtml(task.title)}</div>${task.note ? `<div class="task-note">${escapeHtml(task.note)}</div>` : ''}${task.recurrence === 'monthly' ? '<span class="task-recurrence"><i data-lucide="repeat-2"></i>每月重复</span>' : ''}</div><div class="task-side"><span class="task-due ${overdue ? 'overdue' : ''}">${due}</span><div class="card-actions"><button class="mini-action edit-task" type="button" title="编辑任务"><i data-lucide="pencil"></i></button><button class="mini-action delete delete-task" type="button" title="删除任务"><i data-lucide="trash-2"></i></button></div></div></article>`; }
 function onTaskDragStart(event) { dragPayload = { kind: 'task', id: event.currentTarget.dataset.taskId, board: activeTaskBoard }; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', dragPayload.id); event.currentTarget.classList.add('dragging'); }
 function clearTaskDropIndicators() { document.querySelectorAll('.task-list.drop-target').forEach(list => list.classList.remove('drop-target')); document.querySelectorAll('.task-card.drop-before, .task-card.drop-after').forEach(card => card.classList.remove('drop-before', 'drop-after')); }
 function onTaskDragEnd(event) { event.currentTarget.classList.remove('dragging'); clearTaskDropIndicators(); dragPayload = null; }
@@ -267,9 +276,45 @@ function toggleTask(event) {
   task.done = !task.done;
   task.updatedAt = new Date().toISOString();
   task.completedAt = task.done ? task.updatedAt : null;
+  let nextTaskCreated = false;
+  if (task.done && task.recurrence === 'monthly' && task.due) {
+    const nextDue = nextMonthlyDueDate(task);
+    const tasks = getTaskCollection();
+    const alreadyCreated = tasks.some(entry => entry.recurrenceParentId === task.id && entry.due === nextDue);
+    if (nextDue && !alreadyCreated) {
+      tasks.push({
+        id: `${activeTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`,
+        title: task.title,
+        note: task.note || '',
+        due: nextDue,
+        quadrant: task.quadrant,
+        recurrence: 'monthly',
+        recurrenceDay: task.recurrenceDay,
+        recurrenceParentId: task.id,
+        done: false,
+        createdAt: task.updatedAt,
+        updatedAt: task.updatedAt,
+        sortOrder: nextSortOrder(tasks, task.quadrant)
+      });
+      nextTaskCreated = true;
+    }
+  }
   saveData();
   renderBoard();
-  toast(task.done ? '已完成，做得好' : '已恢复为进行中');
+  toast(task.done ? (nextTaskCreated ? '已完成，已生成下月任务' : '已完成，做得好') : '已恢复为进行中');
+}
+function nextMonthlyDueDate(task) {
+  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(task.due || '');
+  if (!matched) return '';
+  const year = Number(matched[1]);
+  const month = Number(matched[2]);
+  const dueDay = Number(matched[3]);
+  const preferredDay = Number.isInteger(task.recurrenceDay) && task.recurrenceDay >= 1 && task.recurrenceDay <= 31 ? task.recurrenceDay : dueDay;
+  const nextMonthStart = new Date(year, month, 1);
+  const nextYear = nextMonthStart.getFullYear();
+  const nextMonthIndex = nextMonthStart.getMonth();
+  const lastDay = new Date(nextYear, nextMonthIndex + 1, 0).getDate();
+  return isoDate(new Date(nextYear, nextMonthIndex, Math.min(preferredDay, lastDay)));
 }
 function updateStats() {
   const tasks = getTaskCollection();
@@ -323,8 +368,12 @@ function openModal(mode, date = '', quadrant = '', itemId = null) {
   document.getElementById('captureTypeLabel').classList.toggle('hidden', mode !== 'event');
   document.getElementById('captureQuadrantLabel').classList.toggle('hidden', mode !== 'task');
   document.getElementById('captureTimeLabel').classList.toggle('hidden', mode !== 'event');
+  document.getElementById('captureRecurrenceLabel').classList.toggle('hidden', mode !== 'task');
   document.getElementById('captureType').value = item?.type || 'work';
-  if (mode === 'task') renderTaskColumnOptions(item?.quadrant || quadrant);
+  if (mode === 'task') {
+    renderTaskColumnOptions(item?.quadrant || quadrant);
+    document.getElementById('captureMonthlyRecurrence').checked = item?.recurrence === 'monthly';
+  }
   document.getElementById('captureTime').value = item?.time || '09:00';
   setTimeout(() => document.getElementById('captureTitle').focus(), 60);
 }
@@ -339,14 +388,15 @@ function handleCapture(event) {
     if (item) Object.assign(item, values); else data.events.push({ id: `e-${Date.now()}`, ...values });
     saveData(); closeModal(); renderCalendar(); toast(item ? '行程已更新' : '行程已添加');
   } else {
-    const values = { title, note: document.getElementById('captureNote').value.trim(), due: document.getElementById('captureDate').value, quadrant: document.getElementById('captureQuadrant').value };
+    const values = { title, note: document.getElementById('captureNote').value.trim(), due: document.getElementById('captureDate').value, quadrant: document.getElementById('captureQuadrant').value, recurrence: document.getElementById('captureMonthlyRecurrence').checked ? 'monthly' : 'none' };
     const tasks = getTaskCollection(modalTaskBoard);
     const item = editingId ? tasks.find(entry => entry.id === editingId) : null;
     const savedAt = new Date().toISOString();
     if (item) {
       if (item.quadrant !== values.quadrant) item.sortOrder = nextSortOrder(tasks, values.quadrant);
-      Object.assign(item, values, { updatedAt: savedAt });
-    } else tasks.push({ id: `${modalTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`, ...values, done: false, createdAt: savedAt, updatedAt: savedAt, sortOrder: nextSortOrder(tasks, values.quadrant) });
+      const recurrenceDay = values.recurrence === 'monthly' ? (item.due === values.due && Number.isInteger(item.recurrenceDay) ? item.recurrenceDay : Number(values.due.slice(-2))) : null;
+      Object.assign(item, values, { recurrenceDay, updatedAt: savedAt });
+    } else tasks.push({ id: `${modalTaskBoard === 'board' ? 't' : 'p'}-${Date.now()}`, ...values, recurrenceDay: values.recurrence === 'monthly' ? Number(values.due.slice(-2)) : null, done: false, createdAt: savedAt, updatedAt: savedAt, sortOrder: nextSortOrder(tasks, values.quadrant) });
     saveData(); closeModal(); renderBoard(); toast(item ? '任务已更新' : '任务已添加');
   }
 }
