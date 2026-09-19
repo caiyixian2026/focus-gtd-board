@@ -1,5 +1,6 @@
 const today = new Date();
 const storageKey = 'focus-gtd-data-v1';
+const sidebarStorageKey = 'focus-gtd-sidebar-collapsed';
 const defaultData = {
   events: [
     { id: 'e1', date: isoDate(new Date(today.getFullYear(), today.getMonth(), 5)), time: '09:30', title: '月度目标复盘', type: 'important' },
@@ -42,6 +43,7 @@ let deletingColumnId = null;
 let selectedChatTopic = null;
 let hotNewsItems = [];
 let selectedHotNewsIndex = 0;
+let focusedColumnId = null;
 
 function isoDate(date) {
   const year = date.getFullYear();
@@ -271,13 +273,33 @@ function toggleTask(event) {
 }
 function updateStats() {
   const tasks = getTaskCollection();
-  const total = tasks.length;
-  const done = tasks.filter(t => t.done).length;
-  document.getElementById('totalTaskCount').textContent = total;
-  document.getElementById('activeTaskCount').textContent = total - done;
-  document.getElementById('completedTaskCount').textContent = done;
-  document.getElementById('columnCount').textContent = getBoardColumns().length;
+  const columns = getBoardColumns();
+  if (!columns.some(column => column.id === focusedColumnId)) focusedColumnId = null;
+  document.getElementById('boardColumnStats').innerHTML = columns.map(column => {
+    const count = tasks.filter(task => task.quadrant === column.id).length;
+    return `<button class="column-summary-button ${focusedColumnId === column.id ? 'active' : ''}" type="button" data-column-id="${escapeHtml(column.id)}" style="--column-color:${escapeHtml(column.color)}" title="查看${escapeHtml(column.title)}"><i class="column-summary-dot"></i><span>${escapeHtml(column.title)}</span><b>${count}</b></button>`;
+  }).join('');
+  document.querySelectorAll('.column-summary-button').forEach(button => button.addEventListener('click', () => focusBoardColumn(button.dataset.columnId)));
   renderProjectNav();
+}
+function focusBoardColumn(columnId) {
+  const board = document.getElementById('quadrants');
+  const column = board.querySelector(`.quadrant[data-quadrant="${CSS.escape(columnId)}"]`);
+  if (!column) return;
+  focusedColumnId = columnId;
+  board.scrollTo({ left: Math.max(0, column.offsetLeft - 2), behavior: 'smooth' });
+  updateStats();
+}
+function setSidebarCollapsed(collapsed) {
+  const shell = document.querySelector('.app-shell');
+  const toggle = document.getElementById('sidebarToggle');
+  shell.classList.toggle('sidebar-collapsed', collapsed);
+  toggle.setAttribute('aria-pressed', String(collapsed));
+  toggle.setAttribute('title', collapsed ? '展开左侧看板' : '收起左侧看板');
+  toggle.setAttribute('aria-label', collapsed ? '展开左侧看板' : '收起左侧看板');
+  toggle.innerHTML = `<i data-lucide="${collapsed ? 'panel-left-open' : 'panel-left-close'}"></i>`;
+  localStorage.setItem(sidebarStorageKey, String(collapsed));
+  initIcons();
 }
 
 function renderTaskColumnOptions(selectedId) {
@@ -752,6 +774,9 @@ function switchView(view, projectId = activeTaskBoard) {
 }
 
 document.getElementById('calendarNavButton').addEventListener('click', () => switchView('calendar'));
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+  setSidebarCollapsed(!document.querySelector('.app-shell').classList.contains('sidebar-collapsed'));
+});
 document.getElementById('chatNavButton').addEventListener('click', () => { selectedChatTopic = null; switchView('chat'); });
 document.getElementById('hotNewsButton').addEventListener('click', () => switchView('hot-news'));
 document.getElementById('refreshHotNewsButton').addEventListener('click', fetchHotNews);
@@ -790,6 +815,7 @@ document.querySelectorAll('.copy-chat-line').forEach(button => button.addEventLi
 document.getElementById('searchInput').addEventListener('input', renderBoard);
 document.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); document.getElementById('searchInput').focus(); } if (event.key === 'Escape') { closeModal(); closeDeleteConfirm(); closeProjectModal(); closeColumnsModal(); closeColumnDelete(); closeLinkImport(); } });
 document.getElementById('todayLabel').textContent = formatToday(today);
+setSidebarCollapsed(localStorage.getItem(sidebarStorageKey) === 'true');
 renderCalendar(); updateBoardUi(); renderBoard(); renderChatView(); renderHotNews(); initIcons();
 fetchHotNews();
 window.cloudStore?.init({
