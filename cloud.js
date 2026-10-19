@@ -43,8 +43,35 @@
     signOut?.classList.toggle('hidden', !currentUser);
   }
 
+  const isObj = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
   function validBoardData(value) {
-    return value && Array.isArray(value.events) && Array.isArray(value.tasks);
+    return isObj(value) && Array.isArray(value.events) && Array.isArray(value.tasks);
+  }
+
+  const isFinanceShape = value => isObj(value) && Array.isArray(value.accounts) && Array.isArray(value.transactions) && Array.isArray(value.projects);
+
+  /* 云端 board_data = 分槽容器 { v:2, finance, tasks }：财务站写 finance 槽、任务看板写 tasks 槽，
+     写入前先读整行合并，互不覆盖；兼容旧扁平格式（整行是任务看板或财务账本）。 */
+  function toSlots(board) {
+    const slots = { v: 2 };
+    if (!isObj(board)) return slots;
+    if (isObj(board.finance) || isObj(board.tasks) || board.v === 2) {
+      if (isObj(board.finance)) slots.finance = board.finance;
+      if (isObj(board.tasks)) slots.tasks = board.tasks;
+      return slots;
+    }
+    if (validBoardData(board)) slots.tasks = board;
+    else if (isFinanceShape(board)) slots.finance = board;
+    return slots;
+  }
+
+  const readTasks = board => { const slots = toSlots(board); return validBoardData(slots.tasks) ? slots.tasks : null; };
+
+  async function readRow() {
+    const { data, error } = await client.from('user_boards').select('board_data').eq('user_id', currentUser.id).maybeSingle();
+    if (error) throw error;
+    return data?.board_data ?? null;
   }
 
   async function pullCloudData() {
@@ -56,9 +83,12 @@
       await pushSnapshot(callbacks.getData());
       return;
     }
-    if (validBoardData(row.board_data)) {
-      lastSnapshot = JSON.stringify(row.board_data);
-      callbacks.applyData(row.board_data);
+    const cloud = readTasks(row.board_data);
+    if (cloud) {
+      lastSnapshot = JSON.stringify(cloud);
+      callbacks.applyData(cloud);
+    } else {
+      await pushSnapshot(callbacks.getData());
     }
     setSyncStatus('synced', '云端已同步');
   }
@@ -68,7 +98,11 @@
     const serialized = JSON.stringify(snapshot);
     if (serialized === lastSnapshot) return;
     setSyncStatus('syncing', '正在同步');
-    const { error } = await client.from('user_boards').upsert({ user_id: currentUser.id, board_data: snapshot }, { onConflict: 'user_id' });
+    let slots;
+    try { slots = toSlots(await readRow()); } catch { slots = { v: 2 }; }
+    slots.v = 2;
+    slots.tasks = snapshot;
+    const { error } = await client.from('user_boards').upsert({ user_id: currentUser.id, board_data: slots }, { onConflict: 'user_id' });
     if (error) {
       setSyncStatus('error', '同步失败');
       throw error;
@@ -92,9 +126,9 @@
       table: 'user_boards',
       filter: `user_id=eq.${currentUser.id}`
     }, payload => {
-      const next = payload.new?.board_data;
+      const next = readTasks(payload.new?.board_data);
       const serialized = JSON.stringify(next);
-      if (validBoardData(next) && serialized !== lastSnapshot) {
+      if (next && serialized !== lastSnapshot) {
         lastSnapshot = serialized;
         callbacks.applyData(next);
         setSyncStatus('synced', '已接收更新');
@@ -166,8 +200,9 @@
     if (!file || !callbacks) return;
     try {
       const parsed = JSON.parse(await file.text());
-      const imported = parsed.data || parsed;
-      if (!validBoardData(imported)) throw new Error('invalid data');
+      const raw = parsed.data || parsed;
+      const imported = readTasks(raw) || (validBoardData(raw) ? raw : null);
+      if (!imported) throw new Error('invalid data');
       callbacks.applyData(imported);
       schedulePush(imported);
       window.toast?.(currentUser ? '数据已导入并开始同步' : '数据已导入到本地');
@@ -205,5 +240,5 @@
     window.addEventListener('focus', () => { if (currentUser) pullCloudData().catch(() => setSyncStatus('error', '同步失败')); });
   }
 
-  window.cloudStore = { init, schedulePush, configured: () => configured };
+  window.cloudStore = { init, schedulePush, configured: () => configured, slots: { toSlots, readTasks, validBoardData } };
 })();

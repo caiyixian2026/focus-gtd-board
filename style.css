@@ -116,6 +116,9 @@ body { font-size: 16px; }
 .project-nav-item:hover .nav-rename, .nav-rename:focus-visible { opacity: 1; background: #24272c; color: #fff; }
 .nav-rename svg { width: 14px; height: 14px; }
 .add-project-nav { color: #858b94; border: 1px dashed #3a3e44; }
+.finance-nav-link { color: #8fd8ce; text-decoration: none; border: 1px solid #2d6866; margin-top: 7px; background: rgba(25, 159, 153, .1); }
+.finance-nav-link:hover { color: #fff; border-color: var(--teal); background: #245355; }
+.finance-nav-link .external-link-icon { width: 14px; margin-left: auto; opacity: .7; }
 .add-project-nav:hover { color: #fff; border-color: #636970; }
 @media (max-width: 900px) and (orientation: landscape) {
   .main-nav { overflow-x: auto; scrollbar-width: thin; }

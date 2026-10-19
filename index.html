@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="cloud.css" />
+  <link rel="stylesheet" href="style.css?v=20261019a" />
+  <link rel="stylesheet" href="cloud.css?v=20261019a" />
 </head>
 <body>
   <div class="app-shell">
@@ -31,6 +31,9 @@
         <button class="nav-item add-project-nav" id="addProjectButton" type="button" title="新建项目任务看板">
           <i data-lucide="plus"></i><span>新建项目</span>
         </button>
+        <a class="nav-item finance-nav-link" href="https://qianji-finance-89306.app.workbuddy.host/" title="打开个人财务管理">
+          <i data-lucide="wallet-cards"></i><span>个人财务管理</span><i class="external-link-icon" data-lucide="arrow-up-right"></i>
+        </a>
       </nav>
 
       <button class="nav-item chat-nav-bottom" id="chatNavButton" data-view="chat" type="button">
@@ -154,11 +157,11 @@
   <div class="modal-backdrop hidden" id="importHotNewsBackdrop"><div class="modal link-import-modal" role="dialog" aria-modal="true" aria-labelledby="linkImportTitle"><div class="modal-header"><div><div class="eyebrow">IMPORT / PUBLIC WEB PAGE</div><h2 id="linkImportTitle">导入热点链接</h2></div><button class="icon-button subtle" id="closeLinkImport" type="button" title="关闭"><i data-lucide="x"></i></button></div><form id="linkParseForm"><label>公开网页链接<input id="newsLinkInput" type="url" required placeholder="https://example.com/news/article" /></label><p class="form-help">支持任意公开网页。遇到登录、付费墙或反爬时，可以直接补充标题和摘要。</p><div class="link-parse-message" id="linkParseMessage" role="status"></div><div class="link-preview hidden" id="linkParsePreview"><div class="preview-label">解析预览</div><h3 id="parsedNewsTitle"></h3><p id="parsedNewsSummary"></p><span id="parsedNewsSource"></span></div><div class="manual-news-form hidden" id="manualNewsForm"><div class="preview-label">手动补充</div><label>标题<input id="manualNewsTitle" maxlength="120" placeholder="输入热点标题" /></label><label>摘要或正文要点<textarea id="manualNewsSummary" rows="5" minlength="10" placeholder="粘贴摘要或用几句话说明发生了什么"></textarea></label></div><div class="form-footer"><button class="secondary-button" id="cancelLinkImport" type="button">取消</button><button class="secondary-button hidden" id="manualNewsConvertButton" type="button"><i data-lucide="message-square-plus"></i>用补充内容转换</button><button class="primary-button" id="parseNewsButton" type="submit"><i data-lucide="scan-text"></i><span id="parseNewsButtonLabel">解析链接</span></button></div></form></div></div>
   <div class="auth-backdrop hidden" id="authBackdrop"><div class="auth-panel"><div class="auth-brand"><div class="brand-mark"><i data-lucide="cloud"></i></div><div><div class="brand-name">FOCUS / CLOUD</div><div class="brand-caption">Supabase 多设备同步</div></div></div><div><div class="eyebrow">SECURE SYNC</div><h2>登录你的工作台</h2><p>在不同设备使用同一个账号，行程和任务会自动同步。</p></div><form id="authForm"><label>邮箱<input id="authEmail" type="email" autocomplete="email" required placeholder="name@example.com" /></label><label>密码<input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="至少 6 位" /></label><div class="auth-message" id="authMessage"></div><button class="primary-button auth-primary" id="signInButton" type="submit"><i data-lucide="log-in"></i>登录</button><button class="secondary-button auth-secondary" id="signUpButton" type="button">创建新账户</button><button class="text-button" id="continueLocalButton" type="button">暂时使用本地模式</button></form></div></div>
   <div class="toast" id="toast" role="status"></div>
-  <script src="config.js"></script>
-  <script src="news-utils.js"></script>
-  <script src="board-model.js"></script>
+  <script src="config.js?v=20261019a"></script>
+  <script src="news-utils.js?v=20261019a"></script>
+  <script src="board-model.js?v=20261019a"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="cloud.js"></script>
-  <script src="script.js"></script>
+  <script src="cloud.js?v=20261019a"></script>
+  <script src="script.js?v=20261019a"></script>
 </body>
 </html>
